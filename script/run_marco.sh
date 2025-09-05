@@ -3,11 +3,11 @@ BATCH_SIZE=100000
 # 1. Define an array of model names
 MODEL_NAMES=(
   # M3
-  BAAI/bge-m3
-  # mxbai
-  mixedbread-ai/mxbai-embed-large-v1
-  # E5  
-  "intfloat/multilingual-e5-large"
+#   BAAI/bge-m3
+#   # mxbai
+#   mixedbread-ai/mxbai-embed-large-v1
+#   # E5  
+#   "intfloat/multilingual-e5-large"
   # Snowflake
   "Snowflake/snowflake-arctic-embed-l-v2.0"
   # ANCE

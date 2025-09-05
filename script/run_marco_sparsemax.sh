@@ -4,11 +4,12 @@ BATCH_SIZE=800000
 # Define an array of model names
 MODEL_NAMES=(
   # M3
-  BAAI/bge-m3
+#   BAAI/bge-m3
   # mxbai
-  mixedbread-ai/mxbai-embed-large-v1
-  # E5  
+#   mixedbread-ai/mxbai-embed-large-v1
+#   # E5  
   "intfloat/multilingual-e5-large"
+
   # Snowflake
 #   "Snowflake/snowflake-arctic-embed-l-v2.0"
 #   # ANCE
@@ -51,6 +52,14 @@ PRF_KS=(
   "2"
   "5"
   "10"
+)
+
+ALPHAS=(
+  "2.1"
+  "2.2"
+  "2.3"
+  "2.4"
+  "2.5"
 )
 
 # Loop over each model and dataset
@@ -99,7 +108,7 @@ for MODEL_NAME in "${MODEL_NAMES[@]}"; do
     for QUERY_ID in "${QUERY_IDS[@]}"; do
       SAFE_QUERY_NAME=${QUERY_ID//\//_}
       
-      TREC_DIR="runs_sparsemax_test/${SAFE_MODEL_NAME}/${SAFE_DATASET_ID}/${SAFE_QUERY_NAME}/"
+      TREC_DIR="runs_sparsemax_alpha_variable/${SAFE_MODEL_NAME}/${SAFE_DATASET_ID}/${SAFE_QUERY_NAME}/"
       
       mkdir -p "${TREC_DIR}"
 
@@ -122,22 +131,29 @@ for MODEL_NAME in "${MODEL_NAMES[@]}"; do
 
       # PRF + Sparsemax queries
       for PRF_K in "${PRF_KS[@]}"; do
+        for ALPHA in "${ALPHAS[@]}"; do
 
-        TREC_FILE="${TREC_DIR}/sparsemax_@${PRF_K}.trec"
-        LOG_FILE="${TREC_DIR}/sparsemax_@${PRF_K}.log"
-        echo "Running sparsemax query with:"
-        echo "  PRF_K: ${PRF_K}"
-        echo "  Parameters: ${PARAMS}"
-        
-        eval python tool/query_sparsemax.py \
-          --ir-ds-query-path "${QUERY_ID}" \
-          --output-trec-name "${TREC_FILE}" \
-          --sparsity-log-file "${LOG_FILE}" \
-          --index-dir "${OUTPUT_DIR}" \
-          --prf-k ${PRF_K} \
-          --top-k 10 \
-          --model ${MODEL_NAME} \
-          ${PARAMS}
+          TREC_FILE="${TREC_DIR}/sparsemax_@${PRF_K}_alpha${ALPHA}.trec"
+          LOG_FILE="${TREC_DIR}/logs/sparsemax_@${PRF_K}_alpha${ALPHA}.log"
+          
+          mkdir -p "${TREC_DIR}/logs"
+
+          echo "Running sparsemax query with:"
+          echo "  PRF_K: ${PRF_K}"
+          echo "  Alpha: ${ALPHA}"
+          echo "  Parameters: ${PARAMS}"
+          
+          eval python tool/query_sparsemax.py \
+            --ir-ds-query-path "${QUERY_ID}" \
+            --output-trec-name "${TREC_FILE}" \
+            --sparsity-log-file "${LOG_FILE}" \
+            --index-dir "${OUTPUT_DIR}" \
+            --prf-k ${PRF_K} \
+            --alpha ${ALPHA} \
+            --top-k 10 \
+            --model ${MODEL_NAME} \
+            ${PARAMS}
+        done
       done
     done
   done

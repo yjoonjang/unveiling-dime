@@ -178,3 +178,5 @@ cython_debug/
 
 output/
 trec_eval/
+trained_adapters
+trained_params

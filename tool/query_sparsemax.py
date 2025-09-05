@@ -8,7 +8,7 @@ import pandas as pd
 import ir_datasets
 
 from sentence_transformers import SentenceTransformer, util
-from entmax import sparsemax
+from entmax import sparsemax, entmax_bisect
 
 def load_index_and_metadata(index_dir):
     """
@@ -106,20 +106,21 @@ def compute_centroid(query_matches, k=None, weighted=False, attention_type="line
 
     return centroid
 
-def sparsemax_zero_out_dims_in_query(centroid, query_vector):
+def sparsemax_zero_out_dims_in_query(centroid, query_vector, alpha=2.0):
     """
-    Apply sparsemax to the dimension-wise product between centroid and query_vector,
+    Apply entmax with a given alpha to the dimension-wise product between centroid and query_vector,
     then use the resulting binary mask to zero out dimensions in query_vector.
     Returns the modified query vector and the number of non-zero dimensions.
     """
     # Compute dimension-wise importance scores
     itx_vec = np.multiply(centroid, query_vector)
     
-    # Convert to torch tensor for sparsemax
+    # Convert to torch tensor for entmax
     importance_tensor = torch.tensor(itx_vec, dtype=torch.float32)
     
-    # Apply sparsemax to get sparse attention weights
-    sparse_weights = sparsemax(importance_tensor, dim=0)
+    # Apply entmax with alpha to get sparse attention weights
+    # alpha=1 -> softmax, alpha=1.5 -> entmax15, alpha=2 -> sparsemax
+    sparse_weights = entmax_bisect(importance_tensor, alpha=alpha, dim=0)
     
     # Convert back to numpy and create binary mask
     sparse_weights_np = sparse_weights.detach().numpy()
@@ -150,7 +151,8 @@ def run_queries(
     normalize_embeddings: bool,
     query_prompt: str,
     doc_prompt: str,
-    sparsity_log_file: str
+    sparsity_log_file: str,
+    alpha: float
 ):
     # Load IR dataset queries
     try:
@@ -201,7 +203,8 @@ def run_queries(
                 orig_query_vector = query_vectors_map[q_id]
                 new_query_vector, non_zero_dims = sparsemax_zero_out_dims_in_query(
                     llm_docs_map[q_id],
-                    orig_query_vector
+                    orig_query_vector,
+                    alpha=alpha
                 )
                 total_dims = orig_query_vector.shape[0]
                 sparsity_logs.append(f"{q_id}\t{non_zero_dims}\t{total_dims}")
@@ -221,7 +224,8 @@ def run_queries(
                 orig_query_vector = query_vectors_map[q_id]
                 new_query_vector, non_zero_dims = sparsemax_zero_out_dims_in_query(
                     centroid,
-                    orig_query_vector
+                    orig_query_vector,
+                    alpha=alpha
                 )
                 total_dims = orig_query_vector.shape[0]
                 sparsity_logs.append(f"{q_id}\t{non_zero_dims}\t{total_dims}")
@@ -299,6 +303,7 @@ parser.add_argument("--normalize_embeddings", action="store_true", help="If spec
 parser.add_argument("--query_prompt", type=str, default=None, help="Query prompt.")
 parser.add_argument("--doc_prompt", type=str, default=None, help="Doc prompt.")
 parser.add_argument("--sparsity-log-file", type=str, default=None, help="Path to save the sparsity log")
+parser.add_argument("--alpha", type=float, default=2.0, help="Alpha for entmax function (1=softmax, 1.5=entmax15, 2=sparsemax)")
 
 args = parser.parse_args()
 
@@ -323,5 +328,6 @@ if __name__ == "__main__":
         normalize_embeddings=args.normalize_embeddings,
         query_prompt=args.query_prompt,
         doc_prompt=args.doc_prompt,
-        sparsity_log_file=args.sparsity_log_file
+        sparsity_log_file=args.sparsity_log_file,
+        alpha=args.alpha
     )
